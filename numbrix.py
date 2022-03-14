@@ -2,13 +2,13 @@
 # Devem alterar as classes e funções neste ficheiro de acordo com as instruções do enunciado.
 # Além das funções e classes já definidas, podem acrescentar outras que considerem pertinentes.
 
-# Grupo 00:
-# 00000 Nome1
-# 00000 Nome2
+# Grupo 56:
+# 95579 Francisco Sousa
+# 95674 Sara Aguincha
 
 import sys
 from search import Problem, Node, astar_search, breadth_first_tree_search, depth_first_tree_search, greedy_search, recursive_best_first_search
-
+import re
 
 class NumbrixState:
     state_id = 0
@@ -26,6 +26,10 @@ class NumbrixState:
 
 class Board:
     """ Representação interna de um tabuleiro de Numbrix. """
+
+    def __init__(self):
+        self.board = []
+        pass
     
     def get_number(self, row: int, col: int) -> int:
         """ Devolve o valor na respetiva posição do tabuleiro. """
@@ -49,7 +53,21 @@ class Board:
         """ Lê o ficheiro cujo caminho é passado como argumento e retorna
         uma instância da classe Board. """
         # TODO
-        pass
+
+        board = Board()
+
+        with open(filename) as f:
+            lines = f.readlines()
+        
+        for list in range(0, len(lines)):
+            board.board += [[],]
+            temp = re.split("\t|\n", lines[list])
+            for i in range(len(temp) - 1):
+                board.board[list] += [int(temp[i]),]
+        board.board = board.board[1:]
+        #pain
+
+        return board
 
     # TODO: outros metodos da classe
 
