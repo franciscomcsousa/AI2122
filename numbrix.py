@@ -85,22 +85,15 @@ class Board:
     def get_neighbors(self, row: int, col: int):
         return self.adjacent_vertical_numbers(row, col) + self.adjacent_horizontal_numbers(row, col)
 
-    def manhattan_distance(self, state: NumbrixState, row: int, col: int, value: int):
-        """ Retorna a distância entre o número passado como argumento e
-        o número na posição (row, col) do tabuleiro. """
-        return abs(state.board.get_number(row, col) - value)
-
-    def get_empty_with_most_neighbors(self):
-        """ Retorna uma lista de tuplos (row, col) que representam as
-        posições vazias com mais vizinhos"""
-        board = self.board
+    def get_empty_positions(self):
+        """ Retorna a lista de posições vazias"""
         empty_positions = []
         for i in range(board.size):
             for j in range(board.size):
                 if board.get_number(i, j) == 0:
-                    empty_positions += [(i, j, board.get_neighbors(i, j))]
-        return max(empty_positions, key=lambda x: len(x[2]))
-    
+                    empty_positions += [(i, j)]
+        return empty_positions
+
     @staticmethod    
     def parse_instance(filename: str):
         """ Lê o ficheiro cujo caminho é passado como argumento e retorna
@@ -127,24 +120,15 @@ class Board:
                 print(self.board[i][j], end="\t")
             print()
 
-    def get_empty_positions(self, state: NumbrixState):
+    def get_empty_positions(self):
         """ Retorna uma lista de tuplos (row, col) que representam as
         posições vazias do tabuleiro. """
-        board = state.board
         empty_positions = []
         for i in range(board.size):
             for j in range(board.size):
                 if board.get_number(i, j) == 0:
                     empty_positions += [(i, j)]
         return empty_positions
-
-    def best_matches(self, neighbors):
-        """ Returns the list of numbers that repeat the most in the list of neightbors"""
-        matches = []
-        for i in neighbors:
-            matches[i] += board.get_pred_succ(i)
-        # Get the numbers that repeat the most times in matches
-        return max(matches, key=lambda x: len(x))
         
 
 class Numbrix(Problem):
@@ -156,15 +140,9 @@ class Numbrix(Problem):
         """ Retorna uma lista de ações que podem ser executadas a
         partir do estado passado como argumento. """
         board = state.board
-        empty_with_most = board.get_empty_with_most_neighbors()
+        empty = board.get_empty_positions()
         actions = []
-        for position in empty_with_most:
-            row, col = position
-            neighbors = board.get_neighbors(row, col)
-            matches = board.best_matches(neighbors)
-            for match in matches:
-                if not board().is_number_in_board(match):
-                    actions += [row, col, match]
+        
         return actions
 
     def result(self, state: NumbrixState, action):
