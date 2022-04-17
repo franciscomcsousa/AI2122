@@ -9,6 +9,8 @@
 from ast import arg
 from copy import deepcopy
 import sys
+
+from sklearn import neighbors
 from search import Problem, Node, astar_search, breadth_first_tree_search, depth_first_graph_search, depth_first_tree_search, greedy_search, recursive_best_first_search
 import re
 
@@ -60,24 +62,44 @@ class Board:
             return value + 1, value - 1
 
 
-
     def adjacent_vertical_numbers(self, row: int, col: int):
         """ Devolve os valores imediatamente abaixo e acima, 
         respectivamente. """
-        #TODO - improve this return with get_number
-        return (self.board[row + 1][col] if row + 1 < self.size else None, self.board[row - 1][col] if (row - 1 >= 0) else None)
+        if row - 1 >= 0:
+            return (self.board[row - 1][col],)
+        elif row + 1 < self.size:
+            return (self.board[row + 1][col],)
+        else:
+            return (self.board[row - 1][col], self.board[row + 1][col])
     
     def adjacent_horizontal_numbers(self, row: int, col: int):
         """ Devolve os valores imediatamente à esquerda e à direita, 
         respectivamente. """
-        #TODO - improve this return with get_number
-        return (self.board[row][col - 1] if col - 1 >= 0 else None, self.board[row][col + 1] if (col + 1 < self.size) else None)
+        if col - 1 >= 0:
+            return (self.board[row][col - 1],)
+        elif col + 1 < self.size:
+            return (self.board[row][col + 1],)
+        else:
+            return (self.board[row][col - 1], self.board[row][col + 1])
+
+    def get_neighbors(self, row: int, col: int):
+        return self.adjacent_vertical_numbers(row, col) + self.adjacent_horizontal_numbers(row, col)
 
     def manhattan_distance(self, state: NumbrixState, row: int, col: int, value: int):
         """ Retorna a distância entre o número passado como argumento e
         o número na posição (row, col) do tabuleiro. """
         return abs(state.board.get_number(row, col) - value)
-        
+
+    def get_empty_with_most_neighbors(self):
+        """ Retorna uma lista de tuplos (row, col) que representam as
+        posições vazias com mais vizinhos"""
+        board = self.board
+        empty_positions = []
+        for i in range(board.size):
+            for j in range(board.size):
+                if board.get_number(i, j) == 0:
+                    empty_positions += [(i, j, board.get_neighbors(i, j))]
+        return max(empty_positions, key=lambda x: len(x[2]))
     
     @staticmethod    
     def parse_instance(filename: str):
@@ -95,7 +117,6 @@ class Board:
                 board.board[list] += [int(temp[i]),]
         board.size = board.board[0][0]
         board.board = board.board[1:]
-        #pain
 
         return board
 
@@ -117,6 +138,15 @@ class Board:
                     empty_positions += [(i, j)]
         return empty_positions
 
+    def best_matches(self, neighbors):
+        """ Returns the list of numbers that repeat the most in the list of neightbors"""
+        matches = []
+        for i in neighbors:
+            matches[i] += board.get_pred_succ(i)
+        # Get the numbers that repeat the most times in matches
+        return max(matches, key=lambda x: len(x))
+        
+
 class Numbrix(Problem):
     def __init__(self, board: Board):
         """ O construtor especifica o estado inicial. """
@@ -126,28 +156,15 @@ class Numbrix(Problem):
         """ Retorna uma lista de ações que podem ser executadas a
         partir do estado passado como argumento. """
         board = state.board
-        empty_positions = board.get_empty_positions(state)
+        empty_with_most = board.get_empty_with_most_neighbors()
         actions = []
-        for position in empty_positions:
+        for position in empty_with_most:
             row, col = position
-            vertical = board.adjacent_vertical_numbers(row, col)
-            horizontal = board.adjacent_horizontal_numbers(row, col)
-            if vertical[0] is not None and vertical[0] - 1 >= 0 and not board.is_number_in_board(vertical[0] - 1):
-                actions += [(row, col, vertical[0] - 1)]
-            if vertical[0] is not None and vertical[0] + 1 <= board.size ** 2 and not board.is_number_in_board(vertical[0] + 1):
-                actions += [(row, col, vertical[0] + 1)]
-            if vertical[1] is not None and vertical[1] - 1 >= 0 and not board.is_number_in_board(vertical[1] - 1):
-                actions += [(row, col, vertical[1] - 1)]
-            if vertical[1] is not None and vertical[1] + 1 <= board.size ** 2 and not board.is_number_in_board(vertical[1] + 1):
-                actions += [(row, col, vertical[1] + 1)]
-            if horizontal[0] is not None and horizontal[0] - 1 >= 0 and not board.is_number_in_board(horizontal[0] - 1):
-                actions += [(row, col, horizontal[0] - 1)]
-            if horizontal[0] is not None and horizontal[0] + 1 <= board.size ** 2 and not board.is_number_in_board(horizontal[0] + 1):
-                actions += [(row, col, horizontal[0] + 1)]
-            if horizontal[1] is not None and horizontal[1] - 1 >= 0 and not board.is_number_in_board(horizontal[1] - 1):
-                actions += [(row, col, horizontal[1] - 1)]
-            if horizontal[1] is not None and horizontal[1] + 1 <= board.size ** 2 and not board.is_number_in_board(horizontal[1] + 1):
-                actions += [(row, col, horizontal[1] + 1)]
+            neighbors = board.get_neighbors(row, col)
+            matches = board.best_matches(neighbors)
+            for match in matches:
+                if not board().is_number_in_board(match):
+                    actions += [row, col, match]
         return actions
 
     def result(self, state: NumbrixState, action):
@@ -169,16 +186,12 @@ class Numbrix(Problem):
             for j in range(board.size):
                 if board.get_number(i, j) == 0:
                     return False
-                vertical_neighbors = board.adjacent_vertical_numbers(i, j)
-                horizontal_neighbors = board.adjacent_horizontal_numbers(i, j)
-                predecessor = False
-                successor = False
-                if board.get_number(i, j) - 1 in vertical_neighbors or board.get_number(i, j) - 1 in horizontal_neighbors:
-                    predecessor = True
-                if board.get_number(i, j) + 1 in vertical_neighbors or board.get_number(i, j) + 1 in horizontal_neighbors:
-                    successor = True
-                if not (predecessor and successor):
-                    return False
+                neighbors = board.get_neighbors(i, j)
+                pred_succ = board.get_pred_succ(board.get_number(i, j))
+                for num in range(len(pred_succ)):
+                    if pred_succ[num] not in neighbors:
+                        return False
+                continue
         return True
 
     def h(self, node: Node):
