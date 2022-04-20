@@ -10,9 +10,10 @@ from ast import arg
 from copy import deepcopy
 import sys
 
-from sklearn import neighbors
-from search import Problem, Node, astar_search, breadth_first_tree_search, depth_first_graph_search, depth_first_tree_search, greedy_search, recursive_best_first_search
+from search import Problem, Node, astar_search, breadth_first_tree_search, depth_first_graph_search, \
+    depth_first_tree_search, greedy_search, recursive_best_first_search
 import re
+
 
 class NumbrixState:
     state_id = 0
@@ -24,7 +25,7 @@ class NumbrixState:
 
     def __lt__(self, other):
         return self.id < other.id
-        
+
     # TODO: outros metodos da classe
 
 
@@ -35,7 +36,7 @@ class Board:
         self.board = []
         self.size = 0
         pass
-    
+
     def get_number(self, row: int, col: int):
         """ Devolve o valor na respetiva posição do tabuleiro. """
         return self.board[row][col]
@@ -46,6 +47,8 @@ class Board:
 
     def is_number_in_board(self, value: int):
         """ Verifica se um dado valor existe no tabuleiro. """
+        if value == 0:
+            return False
         for i in range(self.size):
             for j in range(self.size):
                 if self.board[i][j] == value:
@@ -55,35 +58,57 @@ class Board:
     def get_pred_succ(self, value: int):
         """ Retorna o predecessor e o sucessor de um dado valor. """
         if value == 1:
-            return value + 1,
-        elif value == self.size**2:
-            return value - 1,
+            return [value + 1, ]
+        elif value == self.size ** 2:
+            return [value - 1, ]
         else:
-            return value + 1, value - 1
-
+            return [value + 1, value - 1]
 
     def adjacent_vertical_numbers(self, row: int, col: int):
         """ Devolve os valores imediatamente abaixo e acima, 
         respectivamente. """
-        if row - 1 >= 0:
+        if row - 1 >= 0 and not row + 1 < self.size:
             return (self.board[row - 1][col],)
-        elif row + 1 < self.size:
+        elif row + 1 < self.size and not row - 1 >= 0:
             return (self.board[row + 1][col],)
         else:
             return (self.board[row - 1][col], self.board[row + 1][col])
-    
+
     def adjacent_horizontal_numbers(self, row: int, col: int):
         """ Devolve os valores imediatamente à esquerda e à direita, 
         respectivamente. """
-        if col - 1 >= 0:
+        if col - 1 >= 0 and not col + 1 < self.size:
             return (self.board[row][col - 1],)
-        elif col + 1 < self.size:
+        elif col + 1 < self.size and not col - 1 >= 0:
             return (self.board[row][col + 1],)
         else:
             return (self.board[row][col - 1], self.board[row][col + 1])
 
+    def adjacent_vertical_positions(self, row: int, col: int):
+        """ Devolve as posições imediatamente abaixo e acima,
+        respectivamente. """
+        if row - 1 >= 0 and not row + 1 < self.size:
+            return (row - 1, col),
+        elif row + 1 < self.size and not row - 1 >= 0:
+            return (row + 1, col),
+        else:
+            return ((row - 1, col), (row + 1, col))
+
+    def adjacent_horizontal_positions(self, row: int, col: int):
+        """ Devolve as posições imediatamente à esquerda e à direita,
+        respectivamente. """
+        if col - 1 >= 0 and not col + 1 < self.size:
+            return (row, col - 1),
+        elif col + 1 < self.size and not col - 1 >= 0:
+            return (row, col + 1),
+        else:
+            return ((row, col - 1), (row, col + 1))
+
     def get_neighbors(self, row: int, col: int):
         return self.adjacent_vertical_numbers(row, col) + self.adjacent_horizontal_numbers(row, col)
+
+    def get_neighbors_positions(self, row: int, col: int):
+        return self.adjacent_vertical_positions(row, col) + self.adjacent_horizontal_positions(row, col)
 
     def get_empty_positions(self):
         """ Retorna a lista de posições vazias"""
@@ -94,7 +119,7 @@ class Board:
                     empty_positions += [(i, j)]
         return empty_positions
 
-    @staticmethod    
+    @staticmethod
     def parse_instance(filename: str):
         """ Lê o ficheiro cujo caminho é passado como argumento e retorna
         uma instância da classe Board. """
@@ -102,12 +127,12 @@ class Board:
 
         with open(filename) as f:
             lines = f.readlines()
-        
+
         for list in range(0, len(lines)):
-            board.board += [[],]
+            board.board += [[], ]
             temp = re.split("\t|\n", lines[list])
             for i in range(len(temp) - 1):
-                board.board[list] += [int(temp[i]),]
+                board.board[list] += [int(temp[i]), ]
         board.size = board.board[0][0]
         board.board = board.board[1:]
 
@@ -129,20 +154,68 @@ class Board:
                 if board.get_number(i, j) == 0:
                     empty_positions += [(i, j)]
         return empty_positions
-        
+
+    # manhatan distance between two positions
+    def manhattan_distance(self, pos1, pos2):
+        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
+
+
 
 class Numbrix(Problem):
     def __init__(self, board: Board):
         """ O construtor especifica o estado inicial. """
         self.initial = NumbrixState(board)
+        self.position = [[], ] * ((board.size**2) + 1)
+
+        for i in range(board.size):
+            for j in range(board.size):
+                if board.get_number(i, j) != 0:
+                    self.position[board.get_number(i, j)] = [i, j]
+                else:
+                    self.position[board.get_number(i, j)] = [[], ]
+        self.position[0] = []
+
+    def get_next_position(self, current: int):
+        """ Retorna uma lista de tuplos (row, col) que representam as
+        posições vizinhas à posição (row, col) passada como argumento. """
+        row, col = self.position[current]
+        # For each entry of position
+        while (current < len(self.position)):
+            # If the position is empty
+            if self.position[current] == []:
+                current += 1
+                continue
+            # If the position is not empty
+            else:
+                return self.position[current]
 
     def actions(self, state: NumbrixState):
         """ Retorna uma lista de ações que podem ser executadas a
         partir do estado passado como argumento. """
         board = state.board
-        empty = board.get_empty_positions()
         actions = []
-        
+        # For each entry of self.position
+        for i in range(len(self.position)):
+            # If the position is empty
+            if self.position[i] == []:
+                continue
+            # If the position is not empty
+            else:
+                temp_pred_succ = board.get_pred_succ(i)
+                pred_succ = []
+                for j in range(len(temp_pred_succ)):
+                    if not board.is_number_in_board(temp_pred_succ[j]):
+                        pred_succ += [temp_pred_succ[j],]
+                # Already has pred and succ on board
+                if(len(pred_succ) == 0):
+                    continue
+                neigh_pos = board.get_neighbors_positions(self.position[i][0], self.position[i][1])
+                for pos in neigh_pos:
+                    if board.is_number_in_board(board.get_number(pos[0], pos[1])):
+                        continue
+
+                    for k in range(len(pred_succ)):
+                        actions += ((pos[0], pos[1], pred_succ[k]),)
         return actions
 
     def result(self, state: NumbrixState, action):
@@ -152,6 +225,7 @@ class Numbrix(Problem):
         self.actions(state). """
         deep_copy_state = deepcopy(state)
         deep_copy_state.board.set_number(action[0], action[1], action[2])
+        self.position[action[2]] = [action[0], action[1]]
         return deep_copy_state
 
     def goal_test(self, state: NumbrixState):
@@ -174,7 +248,7 @@ class Numbrix(Problem):
 
     def h(self, node: Node):
         """ Função heuristica utilizada para a procura A*. """
-    
+
     # TODO: outros metodos da classe
 
 
