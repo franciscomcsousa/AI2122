@@ -117,6 +117,11 @@ class Board:
     def get_neighbors_positions(self, row: int, col: int):
         return self.adjacent_vertical_positions(row, col) + self.adjacent_horizontal_positions(row, col)
 
+    def is_neighbor(self, value1: int, value2: int):
+        if  self.position[value1] == [] or self.position[value2] == []:
+            return False
+        return self.position[value1] in self.get_neighbors(self.position[value2][0], self.position[value2][1])
+
     def get_empty_positions(self):
         """ Retorna a lista de posições vazias"""
         empty_positions = []
@@ -199,8 +204,6 @@ class Numbrix(Problem):
             if board.position[i] == []:
                 # Verifies if the index before and after the empty list have stuff
                 if (i > 0 and i < len(board.position) - 1 and board.position[i-1] != [] and board.position[i+1] != []):
-                    # i is the missing number
-                    #print(i)
                     position1 = board.get_neighbors_positions(board.position[i-1][0],board.position[i-1][1])
                     position2 = board.get_neighbors_positions(board.position[i+1][0],board.position[i+1][1])
                     only_positions = list(set(position1).intersection(position2))
@@ -222,10 +225,20 @@ class Numbrix(Problem):
                 for pos in neigh_pos:
                     if board.is_number_in_board(board.get_number(pos[0], pos[1])):
                         continue
-
                     for k in range(len(pred_succ)):
-                        actions += ((pos[0], pos[1], pred_succ[k]),)
+                        if self.is_manhatan_viable(state, pred_succ[k], pos):
+                            actions += ((pos[0], pos[1], pred_succ[k]),)
+                break
         return actions
+
+    def is_manhatan_viable(self, state: NumbrixState, number: int, pos: list):
+        board = state.board
+        for i in range(max( 1 , number - (2 * board.size - 2)) , min( board.size , number + (2 * board.size - 2) + 1)):
+            if board.position[i] == []:
+                continue
+            if board.manhattan_distance(pos, board.position[i]) > abs(number - i):
+                return False
+        return True
 
     def result(self, state: NumbrixState, action):
         """ Retorna o estado resultante de executar a 'action' sobre
