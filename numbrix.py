@@ -31,11 +31,18 @@ class NumbrixState:
 
 class Board:
     """ Representação interna de um tabuleiro de Numbrix. """
+    def __init__(self, board: list, size: int):
+        self.board = board
+        self.size = size
+        self.position = [[], ] * ((self.size ** 2) + 1)
 
-    def __init__(self):
-        self.board = []
-        self.size = 0
-        pass
+        for i in range(self.size):
+            for j in range(self.size):
+                if self.get_number(i, j) != 0:
+                    self.position[self.get_number(i, j)] = [i, j]
+                else:
+                    self.position[self.get_number(i, j)] = [[], ]
+        self.position[0] = []
 
     def get_number(self, row: int, col: int):
         """ Devolve o valor na respetiva posição do tabuleiro. """
@@ -123,19 +130,19 @@ class Board:
     def parse_instance(filename: str):
         """ Lê o ficheiro cujo caminho é passado como argumento e retorna
         uma instância da classe Board. """
-        board = Board()
 
         with open(filename) as f:
             lines = f.readlines()
-
+        list_board = []
         for list in range(0, len(lines)):
-            board.board += [[], ]
+            list_board += [[], ]
             temp = re.split("\t|\n", lines[list])
             for i in range(len(temp) - 1):
-                board.board[list] += [int(temp[i]), ]
-        board.size = board.board[0][0]
-        board.board = board.board[1:]
+                list_board[list] += [int(temp[i]), ]
+        size = list_board[0][0]
+        list_board = list_board[1:]
 
+        board = Board(list_board,size)
         return board
 
     def print_board(self):
@@ -165,29 +172,20 @@ class Numbrix(Problem):
     def __init__(self, board: Board):
         """ O construtor especifica o estado inicial. """
         self.initial = NumbrixState(board)
-        self.position = [[], ] * ((board.size**2) + 1)
-
-        for i in range(board.size):
-            for j in range(board.size):
-                if board.get_number(i, j) != 0:
-                    self.position[board.get_number(i, j)] = [i, j]
-                else:
-                    self.position[board.get_number(i, j)] = [[], ]
-        self.position[0] = []
 
     def get_next_position(self, current: int):
         """ Retorna uma lista de tuplos (row, col) que representam as
         posições vizinhas à posição (row, col) passada como argumento. """
-        row, col = self.position[current]
+        row, col = board.position[current]
         # For each entry of position
-        while (current < len(self.position)):
+        while (current < len(board.position)):
             # If the position is empty
-            if self.position[current] == []:
+            if board.position[current] == []:
                 current += 1
                 continue
             # If the position is not empty
             else:
-                return self.position[current]
+                return board.position[current]
 
     def actions(self, state: NumbrixState):
         """ Retorna uma lista de ações que podem ser executadas a
@@ -195,9 +193,20 @@ class Numbrix(Problem):
         board = state.board
         actions = []
         # For each entry of self.position
-        for i in range(len(self.position)):
+        for i in range(len(board.position)):
             # If the position is empty
-            if self.position[i] == []:
+
+            if board.position[i] == []:
+                # Verifies if the index before and after the empty list have stuff
+                if (i > 0 and i < len(board.position) - 1 and board.position[i-1] != [] and board.position[i+1] != []):
+                    # i is the missing number
+                    #print(i)
+                    position1 = board.get_neighbors_positions(board.position[i-1][0],board.position[i-1][1])
+                    position2 = board.get_neighbors_positions(board.position[i+1][0],board.position[i+1][1])
+                    only_positions = list(set(position1).intersection(position2))
+                    for position in only_positions:
+                        actions += ((position[0], position[1], i),)
+                    return actions;
                 continue
             # If the position is not empty
             else:
@@ -209,7 +218,7 @@ class Numbrix(Problem):
                 # Already has pred and succ on board
                 if(len(pred_succ) == 0):
                     continue
-                neigh_pos = board.get_neighbors_positions(self.position[i][0], self.position[i][1])
+                neigh_pos = board.get_neighbors_positions(board.position[i][0], board.position[i][1])
                 for pos in neigh_pos:
                     if board.is_number_in_board(board.get_number(pos[0], pos[1])):
                         continue
@@ -225,8 +234,10 @@ class Numbrix(Problem):
         self.actions(state). """
         deep_copy_state = deepcopy(state)
         deep_copy_state.board.set_number(action[0], action[1], action[2])
-        self.position[action[2]] = [action[0], action[1]]
+        deep_copy_state.board.position[action[2]] = [action[0], action[1]]
+
         return deep_copy_state
+
 
     def goal_test(self, state: NumbrixState):
         """ Retorna True se e só se o estado passado como argumento é
@@ -260,5 +271,5 @@ if __name__ == "__main__":
     # Imprimir para o standard output no formato indicado.
     board = Board.parse_instance(sys.argv[1])
     problem = Numbrix(board)
-    result = depth_first_graph_search(problem)
+    result = depth_first_tree_search(problem)
     result.state.board.print_board()
