@@ -242,30 +242,33 @@ class Numbrix(Problem):
         """ Retorna uma lista de ações que podem ser executadas a
         partir do estado passado como argumento. """
         board = state.board
+        actions = []
         edgeMin, edgeMax = self.get_minimum_sequence_edges(state)
-        print(edgeMin, edgeMax)
-
-        #if edgeMin is None or edgeMax is None:
-        #    return [[],]
-
         minimum = board.get_minimum_value()
         maximum = board.get_maximum_value()
 
-        if board.is_sequence(minimum,maximum):
-            # In case 1 to edge min is already filled
-            if board.is_number_in_board(1):
-                return self.get_sequences_edge_max(state, maximum, board.size ** 2)
-            # In case edgeMax to board.size**2 is already filled
-            elif board.is_number_in_board(board.size ** 2):
-                return self.get_sequences_edge_min(state, 1, minimum)
-            # In case none is filled, check which one has the minimum sequence size
-            else:
-                if minimum - 1 > board.size ** 2 - maximum:
-                    return self.get_sequences_edge_max(state, maximum, board.size ** 2)
-                else:
-                    return self.get_sequences_edge_min(state, 1, minimum)
+        # means that the middle is already done
+        if edgeMin is None or edgeMax is None:
+            # chooses to start with the maximum number
+            # TODO for now it completes the maximum first and then the minimum
+            if maximum != board.size ** 2:
+                position = board.positions[maximum]
+                neighbours = board.get_neighbors_positions(position[0], position[1])
+                for pos in neighbours:
+                    if board.is_number_in_board(board.get_number(pos[0], pos[1])):
+                        continue
+                    actions += [[[pos[0], pos[1], maximum + 1],],]
+                return actions
+            elif minimum != 1:
+                position = board.positions[minimum]
+                neighbours = board.get_neighbors_positions(position[0], position[1])
+                for pos in neighbours:
+                    if board.is_number_in_board(board.get_number(pos[0], pos[1])):
+                        continue
+                    actions += [[[pos[0], pos[1], minimum - 1],],]
+                return actions
 
-        return self.get_sequences(state,edgeMin,edgeMax)
+        return self.get_sequences(state, edgeMin, edgeMax)
 
 
     def get_minimum_sequence_edges(self, state: NumbrixState):
@@ -298,10 +301,7 @@ class Numbrix(Problem):
         tree[str(root.value)] = [root,]
         self.expand_tree_node(state, root, edgeMax, tree)
 
-        print("Hello")
-        print(str(edgeMax))
         if str(edgeMax) not in tree.keys():
-            print("Goodbye")
             return sequenceList
 
         for node in tree[str(edgeMax)]:
@@ -463,15 +463,11 @@ class Numbrix(Problem):
         for i in range(board.size):
             for j in range(board.size):
                 if board.get_number(i, j) == 0:
-                    board.print_board()
-                    print()
                     return False
                 neighbors = board.get_neighbors(i, j)
                 pred_succ = board.get_pred_succ(board.get_number(i, j))
                 for num in range(len(pred_succ)):
                     if pred_succ[num] not in neighbors:
-                        board.print_board()
-                        print()
                         return False
                 continue
         return True
