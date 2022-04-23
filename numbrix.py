@@ -122,6 +122,15 @@ class Board:
             return False
         return self.positions[value1] in self.get_neighbors(self.positions[value2][0], self.positions[value2][1])
 
+    def get_filled_position(self):
+        """ Retorna uma posição preenchida. """
+        filled_positions = []
+        for i in range(board.size):
+            for j in range(board.size):
+                if board.get_number(i, j) != 0:
+                    filled_positions += [(i, j)]
+        return filled_positions
+
     def get_empty_positions(self):
         """ Retorna a lista de posições vazias"""
         empty_positions = []
@@ -154,7 +163,10 @@ class Board:
         """ Imprime o tabuleiro no ecrã. """
         for i in range(self.size):
             for j in range(self.size):
-                print(self.board[i][j], end="\t")
+                if j == self.size - 1:
+                    print(self.board[i][j], end="")
+                else:
+                    print(self.board[i][j], end="\t")
             print()
 
     def get_empty_positions(self):
@@ -319,6 +331,17 @@ class Numbrix(Problem):
         else:
             return
 
+        if node.value == objective - 1:
+            for neighborPos in board.get_neighbors_positions(node.pos[0], node.pos[1]):
+                if board.get_number(neighborPos[0], neighborPos[1]) == 0:
+                    son = node.add_son(node.value + 1 if extreme == "maximum" else node.value - 1,
+                                       neighborPos)
+                    if str(son.value) in tree.keys():
+                        tree[str(son.value)] += [son, ]
+                    else:
+                        tree[str(son.value)] = [son, ]
+            return
+
         board.set_number(node.pos[0], node.pos[1], node.value)
         board.positions[node.value] = [node.pos[0], node.pos[1]]
 
@@ -434,6 +457,12 @@ class Numbrix(Problem):
 
     def h(self, node: Node):
         """ Função heuristica utilizada para a procura A*. """
+        board = node.state.board
+
+        empty = board.get_empty_positions()
+        counter = 4 * (board.size ** 2 - len(empty))
+
+        return counter
 
     # TODO: outros metodos da classe coco
 
@@ -446,7 +475,6 @@ if __name__ == "__main__":
     # Imprimir para o standard output no formato indicado.
     board = Board.parse_instance(sys.argv[1])
     problem = Numbrix(board)
-    #print(problem.get_sequences(problem.initial, problem.get_minimum_sequence_edges(problem.initial)[0], problem.get_minimum_sequence_edges(problem.initial)[1]))
-    #problem.get_sequences(problem.initial, 11, 15)
     result = depth_first_tree_search(problem)
+    #result = astar_search(problem, problem.h)
     result.state.board.print_board()
