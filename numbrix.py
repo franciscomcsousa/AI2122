@@ -247,29 +247,18 @@ class Numbrix(Problem):
         minimum = board.get_minimum_value()
         maximum = board.get_maximum_value()
 
-        # means that the middle is already done
-        if edgeMin is None or edgeMax is None:
-            # chooses to start with the maximum number
-            # TODO for now it completes the maximum first and then the minimum
-            if maximum != board.size ** 2:
-                position = board.positions[maximum]
-                neighbours = board.get_neighbors_positions(position[0], position[1])
-                for pos in neighbours:
-                    if board.is_number_in_board(board.get_number(pos[0], pos[1])):
-                        continue
-                    actions += [[[pos[0], pos[1], maximum + 1],],]
-                return actions
-            elif minimum != 1:
-                position = board.positions[minimum]
-                neighbours = board.get_neighbors_positions(position[0], position[1])
-                for pos in neighbours:
-                    if board.is_number_in_board(board.get_number(pos[0], pos[1])):
-                        continue
-                    actions += [[[pos[0], pos[1], minimum - 1],],]
-                return actions
-
-        return self.get_sequences(state, edgeMin, edgeMax)
-
+        # middle is finished, but neither of the extremes are
+        if maximum != board.size ** 2 and edgeMax is None and minimum != 1 and edgeMin is None:
+            if board.size ** 2 - maximum >= minimum - 1:
+                return self.get_extremes_sequence(state, "maximum")
+            else:
+                return self.get_extremes_sequence(state, "minimum")
+        elif maximum == board.size ** 2 and edgeMax is None:
+            return self.get_extremes_sequence(state, "minimum")
+        elif minimum == 1 and edgeMin is None:
+            return self.get_extremes_sequence(state, "maximum")
+        else:
+            return self.get_sequences(state, edgeMin, edgeMax)
 
     def get_minimum_sequence_edges(self, state: NumbrixState):
         board = state.board
@@ -290,7 +279,70 @@ class Numbrix(Problem):
 
         return edgeMin, edgeMax
 
+    def get_extremes_sequence(self, state: NumbrixState, extreme: str):
+        board = state.board
+        positions = board.positions
+        maximum = board.get_maximum_value()
+        minimum = board.get_minimum_value()
+        if extreme == "maximum":
+            edgeMin = maximum
+            edgeMax = board.size ** 2
+        elif extreme == "minimum":
+            edgeMin = minimum
+            edgeMax = 1
+        else:
+            return []
 
+        sequenceList = []
+        tree = {}
+        root = TreeNode(edgeMin, positions[edgeMin])
+        tree[str(root.value)] = [root, ]
+        self.expand_extremes_tree_node(state, root, extreme, tree)
+
+        if str(edgeMax) not in tree.keys():
+            return sequenceList
+
+        for node in tree[str(edgeMax)]:
+            sequenceList += [self.get_extremes_path_to_root(node, root), ]
+
+        return sequenceList
+
+    def expand_extremes_tree_node(self, state: NumbrixState, node: TreeNode, extreme: str, tree: dict):
+
+        deep_copy_state = deepcopy(state)
+        board = deep_copy_state.board
+
+        if extreme == "maximum":
+            objective = board.size ** 2
+        elif extreme == "minimum":
+            objective = 1
+        else:
+            return
+
+        board.set_number(node.pos[0], node.pos[1], node.value)
+        board.positions[node.value] = [node.pos[0], node.pos[1]]
+
+        #if board.manhattan_distance(board.positions[objective], node.pos) > abs(node.value - objective):
+            #return
+
+        neighborsPos = board.get_neighbors_positions(node.pos[0], node.pos[1])
+
+        for neighborPos in neighborsPos:
+            if board.get_number(neighborPos[0], neighborPos[1]) != 0:
+                continue
+            son = node.add_son(node.value + 1 if extreme == "maximum" else node.value - 1, neighborPos)
+            if str(son.value) in tree.keys():
+                tree[str(son.value)] += [son,]
+            else:
+                tree[str(son.value)] = [son,]
+            self.expand_extremes_tree_node(deep_copy_state, son, extreme, tree)
+
+    def get_extremes_path_to_root(self, node: TreeNode, root: TreeNode):
+        sequence = []
+        while node.value != root.value:
+            sequence += [[node.pos[0], node.pos[1], node.value], ]
+            node = node.get_parent()
+        return sequence
 
     def get_sequences(self, state: NumbrixState, edgeMin: int, edgeMax: int):
         sequenceList = []
@@ -300,40 +352,6 @@ class Numbrix(Problem):
         root = TreeNode(edgeMin, positions[edgeMin])
         tree[str(root.value)] = [root,]
         self.expand_tree_node(state, root, edgeMax, tree)
-
-        if str(edgeMax) not in tree.keys():
-            return sequenceList
-
-        for node in tree[str(edgeMax)]:
-            sequenceList += [self.get_path_to_root(node, root),]
-
-        return sequenceList
-
-    def get_sequences_edge_max(self, state: NumbrixState, edgeMin: int, edgeMax: int):
-        sequenceList = []
-        board = state.board
-        positions = board.positions
-        tree = {}
-        root = TreeNode(edgeMin, positions[edgeMin])
-        tree[str(root.value)] = [root,]
-        self.expand_tree_node_edge_max(state, root, edgeMax, tree)
-
-        if str(edgeMax) not in tree.keys():
-            return sequenceList
-
-        for node in tree[str(edgeMax)]:
-            sequenceList += [self.get_path_to_root(node, root),]
-
-        return sequenceList
-
-    def get_sequences_edge_min(self, state: NumbrixState, edgeMin: int, edgeMax: int):
-        sequenceList = []
-        board = state.board
-        positions = board.positions
-        tree = {}
-        root = TreeNode(edgeMin, positions[edgeMin])
-        tree[str(root.value)] = [root,]
-        self.expand_tree_node_edge_min(state, root, edgeMax, tree)
 
         if str(edgeMax) not in tree.keys():
             return sequenceList
@@ -384,63 +402,6 @@ class Numbrix(Problem):
                 tree[str(son.value)] = [son,]
             self.expand_tree_node(deep_copy_state, son, objective, tree)
 
-
-    def expand_tree_node_edge_max(self, state: NumbrixState, node: TreeNode, objective: int, tree: dict):
-
-        deep_copy_state = deepcopy(state)
-        board = deep_copy_state.board
-
-        board.set_number(node.pos[0], node.pos[1], node.value)
-        board.positions[node.value] = [node.pos[0], node.pos[1]]
-
-        if node.value == objective - 1:
-            son = node.add_son(node.value + 1, board.positions[objective])
-            if str(son.value) in tree.keys():
-                tree[str(son.value)] += [son, ]
-            else:
-                tree[str(son.value)] = [son, ]
-            return
-
-        neighborsPos = board.get_neighbors_positions(node.pos[0], node.pos[1])
-
-        for neighborPos in neighborsPos:
-            if board.get_number(neighborPos[0], neighborPos[1]) != 0:
-                continue
-            son = node.add_son(node.value + 1, neighborPos)
-            if str(son.value) in tree.keys():
-                tree[str(son.value)] += [son,]
-            else:
-                tree[str(son.value)] = [son,]
-            self.expand_tree_node_edge_max(deep_copy_state, son, objective, tree)
-
-    def expand_tree_node_edge_min(self, state: NumbrixState, node: TreeNode, objective: int, tree: dict):
-
-        deep_copy_state = deepcopy(state)
-        board = deep_copy_state.board
-
-        board.set_number(node.pos[0], node.pos[1], node.value)
-        board.positions[node.value] = [node.pos[0], node.pos[1]]
-
-        if node.value == objective + 1:
-            son = node.add_son(node.value - 1, board.positions[objective])
-            if str(son.value) in tree.keys():
-                tree[str(son.value)] += [son, ]
-            else:
-                tree[str(son.value)] = [son, ]
-            return
-
-        neighborsPos = board.get_neighbors_positions(node.pos[0], node.pos[1])
-
-        for neighborPos in neighborsPos:
-            if board.get_number(neighborPos[0], neighborPos[1]) != 0:
-                continue
-            son = node.add_son(node.value - 1, neighborPos)
-            if str(son.value) in tree.keys():
-                tree[str(son.value)] += [son,]
-            else:
-                tree[str(son.value)] = [son,]
-            self.expand_tree_node_edge_min(deep_copy_state, son, objective, tree)
-
     def result(self, state: NumbrixState, action):
         """ Retorna o estado resultante de executar a 'action' sobre
         'state' passado como argumento. A ação a executar deve ser uma
@@ -452,7 +413,6 @@ class Numbrix(Problem):
             deep_copy_state.board.positions[placement[2]] = [placement[0], placement[1]]
 
         return deep_copy_state
-
 
     def goal_test(self, state: NumbrixState):
         """ Retorna True se e só se o estado passado como argumento é
