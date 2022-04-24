@@ -9,9 +9,11 @@
 from ast import arg
 from copy import deepcopy
 import sys
+import pickle
 
-from search import Problem, Node, astar_search, breadth_first_tree_search, depth_first_graph_search, \
-    depth_first_tree_search, greedy_search, recursive_best_first_search
+
+
+from search import Problem, Node, depth_first_tree_search
 import re
 
 
@@ -125,18 +127,18 @@ class Board:
     def get_filled_position(self):
         """ Retorna uma posição preenchida. """
         filled_positions = []
-        for i in range(board.size):
-            for j in range(board.size):
-                if board.get_number(i, j) != 0:
+        for i in range(self.size):
+            for j in range(self.size):
+                if self.get_number(i, j) != 0:
                     filled_positions += [(i, j)]
         return filled_positions
 
     def get_empty_positions(self):
         """ Retorna a lista de posições vazias"""
         empty_positions = []
-        for i in range(board.size):
-            for j in range(board.size):
-                if board.get_number(i, j) == 0:
+        for i in range(self.size):
+            for j in range(self.size):
+                if self.get_number(i, j) == 0:
                     empty_positions += [(i, j)]
         return empty_positions
 
@@ -169,15 +171,14 @@ class Board:
                     print(self.board[i][j], end="\t")
             print()
 
-    def get_empty_positions(self):
+    def get_empty_neighbors(self, row: int, col: int):
         """ Retorna uma lista de tuplos (row, col) que representam as
-        posições vazias do tabuleiro. """
-        empty_positions = []
-        for i in range(board.size):
-            for j in range(board.size):
-                if board.get_number(i, j) == 0:
-                    empty_positions += [(i, j)]
-        return empty_positions
+        posições vizinhas a (row, col) que estão vazias. """
+        empty_neighbors = []
+        for i in self.get_neighbors_positions(row, col):
+            if self.get_number(i[0], i[1]) == 0:
+                empty_neighbors += [i]
+        return empty_neighbors
 
     def get_minimum_value(self):
         for i in range(len(self.positions)):
@@ -205,6 +206,23 @@ class Board:
             if self.positions[i] == []:
                 return False
         return True
+
+    def is_possible(self):
+        emptyList = self.get_empty_positions()
+        for position in emptyList:
+            if len(self.get_empty_neighbors(position[0], position[1])) != 0:
+                continue
+            neighborsList = self.get_neighbors(position[0], position[1])
+            predSuccList = []
+            for neighbor in neighborsList:
+                predSucc = self.get_pred_succ(neighbor)
+                for number in predSucc:
+                    predSuccList += [number]
+            #if all numbers in predSuccList are in the positions list
+            if all(self.positions[number] != [] for number in predSuccList):
+                return False
+        return True
+
 
 
 class TreeNode:
@@ -259,6 +277,9 @@ class Numbrix(Problem):
         minimum = board.get_minimum_value()
         maximum = board.get_maximum_value()
 
+        if not board.is_possible():
+            return actions
+
         # middle is finished, but neither of the extremes are
         if maximum != board.size ** 2 and edgeMax is None and minimum != 1 and edgeMin is None:
             if board.size ** 2 - maximum >= minimum - 1:
@@ -274,7 +295,6 @@ class Numbrix(Problem):
 
     def get_minimum_sequence_edges(self, state: NumbrixState):
         board = state.board
-        positions = board.positions
         minSequenceValue = board.size ** 2
         edgeMin = None
         edgeMax = None
@@ -296,6 +316,7 @@ class Numbrix(Problem):
         positions = board.positions
         maximum = board.get_maximum_value()
         minimum = board.get_minimum_value()
+
         if extreme == "maximum":
             edgeMin = maximum
             edgeMax = board.size ** 2
@@ -321,7 +342,8 @@ class Numbrix(Problem):
 
     def expand_extremes_tree_node(self, state: NumbrixState, node: TreeNode, extreme: str, tree: dict):
 
-        deep_copy_state = deepcopy(state)
+        deep_copy_state = pickle.loads(pickle.dumps(state, -1))
+        #deep_copy_state = deepcopy(state)
         board = deep_copy_state.board
 
         if extreme == "maximum":
@@ -394,7 +416,8 @@ class Numbrix(Problem):
 
     def expand_tree_node(self, state: NumbrixState, node: TreeNode, objective: int, tree: dict):
 
-        deep_copy_state = deepcopy(state)
+        #deep_copy_state = deepcopy(state)
+        deep_copy_state = pickle.loads(pickle.dumps(state, -1))
         board = deep_copy_state.board
 
         board.set_number(node.pos[0], node.pos[1], node.value)
@@ -430,7 +453,9 @@ class Numbrix(Problem):
         'state' passado como argumento. A ação a executar deve ser uma
         das presentes na lista obtida pela execução de 
         self.actions(state). """
-        deep_copy_state = deepcopy(state)
+        deep_copy_state = pickle.loads(pickle.dumps(state, -1))
+        #deep_copy_state = deepcopy(state)
+        #
         for placement in action:
             deep_copy_state.board.set_number(placement[0], placement[1], placement[2])
             deep_copy_state.board.positions[placement[2]] = [placement[0], placement[1]]
@@ -446,11 +471,15 @@ class Numbrix(Problem):
         for i in range(board.size):
             for j in range(board.size):
                 if board.get_number(i, j) == 0:
+                    #board.print_board()
+                    #print()
                     return False
                 neighbors = board.get_neighbors(i, j)
                 pred_succ = board.get_pred_succ(board.get_number(i, j))
                 for num in range(len(pred_succ)):
                     if pred_succ[num] not in neighbors:
+                        #board.print_board()
+                        #print()
                         return False
                 continue
         return True
@@ -458,9 +487,11 @@ class Numbrix(Problem):
     def h(self, node: Node):
         """ Função heuristica utilizada para a procura A*. """
         board = node.state.board
+        counter = 0
 
         empty = board.get_empty_positions()
-        counter = 4 * (board.size ** 2 - len(empty))
+        for pos in empty:
+            counter += len(board.get_empty_neighbors(pos[0], pos[1]))
 
         return counter
 
