@@ -13,7 +13,7 @@ import pickle
 
 
 
-from search import Problem, Node, depth_first_tree_search
+from search import Problem, Node, depth_first_tree_search, astar_search
 import re
 
 
@@ -37,11 +37,14 @@ class Board:
         self.board = board
         self.size = size
         self.positions = [[], ] * ((self.size ** 2) + 1)
+        self.empty_positions = []
 
         for i in range(self.size):
             for j in range(self.size):
+                self.empty_positions += [[i, j],]
                 if self.get_number(i, j) != 0:
                     self.positions[self.get_number(i, j)] = [i, j]
+                    self.empty_positions.remove([i, j])
                 else:
                     self.positions[self.get_number(i, j)] = [[], ]
         self.positions[0] = []
@@ -133,15 +136,6 @@ class Board:
                     filled_positions += [(i, j)]
         return filled_positions
 
-    def get_empty_positions(self):
-        """ Retorna a lista de posições vazias"""
-        empty_positions = []
-        for i in range(self.size):
-            for j in range(self.size):
-                if self.get_number(i, j) == 0:
-                    empty_positions += [(i, j)]
-        return empty_positions
-
     @staticmethod
     def parse_instance(filename: str):
         """ Lê o ficheiro cujo caminho é passado como argumento e retorna
@@ -208,7 +202,7 @@ class Board:
         return True
 
     def is_possible(self):
-        emptyList = self.get_empty_positions()
+        emptyList = self.empty_positions
         for position in emptyList:
             if len(self.get_empty_neighbors(position[0], position[1])) != 0:
                 continue
@@ -459,6 +453,8 @@ class Numbrix(Problem):
         for placement in action:
             deep_copy_state.board.set_number(placement[0], placement[1], placement[2])
             deep_copy_state.board.positions[placement[2]] = [placement[0], placement[1]]
+            deep_copy_state.board.empty_positions.remove([placement[0], placement[1]])
+
 
         return deep_copy_state
 
@@ -468,20 +464,20 @@ class Numbrix(Problem):
         estão preenchidas com uma sequência de números adjacentes. """
         board = state.board
         # TODO - Alterar one liner
-        for i in range(board.size):
-            for j in range(board.size):
-                if board.get_number(i, j) == 0:
-                    #board.print_board()
-                    #print()
+
+        for i in range(1, board.size**2 + 1):
+            if board.positions[i] == []:
+                # board.print_board()
+                # print()
+                return False
+            neighbors = board.get_neighbors(board.positions[i][0], board.positions[i][1])
+            pred_succ = board.get_pred_succ(i)
+            for num in range(len(pred_succ)):
+                if pred_succ[num] not in neighbors:
+                    # board.print_board()
+                    # print()
                     return False
-                neighbors = board.get_neighbors(i, j)
-                pred_succ = board.get_pred_succ(board.get_number(i, j))
-                for num in range(len(pred_succ)):
-                    if pred_succ[num] not in neighbors:
-                        #board.print_board()
-                        #print()
-                        return False
-                continue
+            continue
         return True
 
     def h(self, node: Node):
@@ -489,7 +485,7 @@ class Numbrix(Problem):
         board = node.state.board
         counter = 0
 
-        empty = board.get_empty_positions()
+        empty = board.empty_positions
         for pos in empty:
             counter += len(board.get_empty_neighbors(pos[0], pos[1]))
 
@@ -506,6 +502,6 @@ if __name__ == "__main__":
     # Imprimir para o standard output no formato indicado.
     board = Board.parse_instance(sys.argv[1])
     problem = Numbrix(board)
-    result = depth_first_tree_search(problem)
-    #result = astar_search(problem, problem.h)
+    #result = depth_first_tree_search(problem)
+    result = astar_search(problem, problem.h)
     result.state.board.print_board()
