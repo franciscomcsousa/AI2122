@@ -10,10 +10,9 @@ from ast import arg
 from copy import deepcopy
 import sys
 import pickle
+import random
 
-
-
-from search import Problem, Node, depth_first_tree_search
+from search import Problem, Node, depth_first_tree_search, astar_search
 import re
 
 
@@ -33,6 +32,7 @@ class NumbrixState:
 
 class Board:
     """ Representação interna de um tabuleiro de Numbrix. """
+
     def __init__(self, board: list, size: int):
         self.board = board
         self.size = size
@@ -120,7 +120,7 @@ class Board:
         return self.adjacent_vertical_positions(row, col) + self.adjacent_horizontal_positions(row, col)
 
     def is_neighbor(self, value1: int, value2: int):
-        if  self.positions[value1] == [] or self.positions[value2] == []:
+        if self.positions[value1] == [] or self.positions[value2] == []:
             return False
         return self.positions[value1] in self.get_neighbors(self.positions[value2][0], self.positions[value2][1])
 
@@ -158,7 +158,7 @@ class Board:
         size = list_board[0][0]
         list_board = list_board[1:]
 
-        board = Board(list_board,size)
+        board = Board(list_board, size)
         return board
 
     def print_board(self):
@@ -218,11 +218,10 @@ class Board:
                 predSucc = self.get_pred_succ(neighbor)
                 for number in predSucc:
                     predSuccList += [number]
-            #if all numbers in predSuccList are in the positions list
+            # if all numbers in predSuccList are in the positions list
             if all(self.positions[number] != [] for number in predSuccList):
                 return False
         return True
-
 
 
 class TreeNode:
@@ -239,7 +238,7 @@ class TreeNode:
     def add_son(self, value, pos):
         son = TreeNode(value, pos)
         son.set_parent(self)
-        self.sonList += [son,]
+        self.sonList += [son, ]
         return son
 
     def get_parent(self):
@@ -271,6 +270,7 @@ class Numbrix(Problem):
     def actions(self, state: NumbrixState):
         """ Retorna uma lista de ações que podem ser executadas a
         partir do estado passado como argumento. """
+        # print("ACTION CYCLE")
         board = state.board
         actions = []
         edgeMin, edgeMax = self.get_minimum_sequence_edges(state)
@@ -303,8 +303,9 @@ class Numbrix(Problem):
             if board.positions[i] == []:
                 continue
 
-            #TODO - If minSequenceValue == 1 the function can return
-            if board.next_value(i) - i < minSequenceValue and board.positions[min(i + 1, board.get_maximum_value())] == []:
+            # TODO - If minSequenceValue == 1 the function can return
+            if board.next_value(i) - i < minSequenceValue and board.positions[
+                min(i + 1, board.get_maximum_value())] == []:
                 edgeMin = i
                 edgeMax = board.next_value(i)
                 minSequenceValue = board.next_value(i) - i
@@ -333,17 +334,27 @@ class Numbrix(Problem):
         self.expand_extremes_tree_node(state, root, extreme, tree)
 
         if str(edgeMax) not in tree.keys():
+            # print("SEQUENCE LIST: " + str(sequenceList))
             return sequenceList
 
         for node in tree[str(edgeMax)]:
             sequenceList += [self.get_extremes_path_to_root(node, root), ]
 
-        return sequenceList
+        emptySpaceNumber = []
+        for sequence in sequenceList:
+            for action in sequence:
+                emptySpaceNumber += [(len(board.get_empty_neighbors(action[0], action[1])))]
+
+        result_list = [i for _, i in sorted(zip(emptySpaceNumber, sequenceList))]
+
+        #print("SEQUENCE LIST: " + str(sequenceList))
+
+        return result_list
 
     def expand_extremes_tree_node(self, state: NumbrixState, node: TreeNode, extreme: str, tree: dict):
 
         deep_copy_state = pickle.loads(pickle.dumps(state, -1))
-        #deep_copy_state = deepcopy(state)
+        # deep_copy_state = deepcopy(state)
         board = deep_copy_state.board
 
         if extreme == "maximum":
@@ -367,9 +378,6 @@ class Numbrix(Problem):
         board.set_number(node.pos[0], node.pos[1], node.value)
         board.positions[node.value] = [node.pos[0], node.pos[1]]
 
-        #if board.manhattan_distance(board.positions[objective], node.pos) > abs(node.value - objective):
-            #return
-
         neighborsPos = board.get_neighbors_positions(node.pos[0], node.pos[1])
 
         for neighborPos in neighborsPos:
@@ -377,9 +385,9 @@ class Numbrix(Problem):
                 continue
             son = node.add_son(node.value + 1 if extreme == "maximum" else node.value - 1, neighborPos)
             if str(son.value) in tree.keys():
-                tree[str(son.value)] += [son,]
+                tree[str(son.value)] += [son, ]
             else:
-                tree[str(son.value)] = [son,]
+                tree[str(son.value)] = [son, ]
             self.expand_extremes_tree_node(deep_copy_state, son, extreme, tree)
 
     def get_extremes_path_to_root(self, node: TreeNode, root: TreeNode):
@@ -395,16 +403,26 @@ class Numbrix(Problem):
         positions = board.positions
         tree = {}
         root = TreeNode(edgeMin, positions[edgeMin])
-        tree[str(root.value)] = [root,]
+        tree[str(root.value)] = [root, ]
         self.expand_tree_node(state, root, edgeMax, tree)
 
         if str(edgeMax) not in tree.keys():
+            # print("SEQUENCE LIST: " + str(sequenceList))
             return sequenceList
 
         for node in tree[str(edgeMax)]:
-            sequenceList += [self.get_path_to_root(node, root),]
+            sequenceList += [self.get_path_to_root(node, root), ]
 
-        return sequenceList
+        emptySpaceNumber = []
+        for sequence in sequenceList:
+            for action in sequence:
+                emptySpaceNumber += [(len(board.get_empty_neighbors(action[0], action[1])))]
+
+        result_list = [i for _, i in sorted(zip(emptySpaceNumber, sequenceList))]
+
+        # print("SEQUENCE LIST: " + str(sequenceList))
+
+        return result_list
 
     def get_path_to_root(self, node: TreeNode, root: TreeNode):
         sequence = []
@@ -413,10 +431,10 @@ class Numbrix(Problem):
             node = node.get_parent()
         return sequence
 
-
+    #
     def expand_tree_node(self, state: NumbrixState, node: TreeNode, objective: int, tree: dict):
 
-        #deep_copy_state = deepcopy(state)
+        # deep_copy_state = deepcopy(state)
         deep_copy_state = pickle.loads(pickle.dumps(state, -1))
         board = deep_copy_state.board
 
@@ -443,9 +461,9 @@ class Numbrix(Problem):
                 continue
             son = node.add_son(node.value + 1, neighborPos)
             if str(son.value) in tree.keys():
-                tree[str(son.value)] += [son,]
+                tree[str(son.value)] += [son, ]
             else:
-                tree[str(son.value)] = [son,]
+                tree[str(son.value)] = [son, ]
             self.expand_tree_node(deep_copy_state, son, objective, tree)
 
     def result(self, state: NumbrixState, action):
@@ -454,7 +472,7 @@ class Numbrix(Problem):
         das presentes na lista obtida pela execução de
         self.actions(state). """
         deep_copy_state = pickle.loads(pickle.dumps(state, -1))
-        #deep_copy_state = deepcopy(state)
+        # deep_copy_state = deepcopy(state)
         #
         for placement in action:
             deep_copy_state.board.set_number(placement[0], placement[1], placement[2])
@@ -489,9 +507,10 @@ class Numbrix(Problem):
         board = node.state.board
         counter = 0
 
-        empty = board.get_empty_positions()
-        for pos in empty:
-            counter += len(board.get_empty_neighbors(pos[0], pos[1]))
+        for i in range(board.size):
+            for j in range(board.size):
+                if board.board[i][j] == 0:
+                    counter += len(board.get_empty_neighbors(i, j))
 
         return counter
 
@@ -507,5 +526,5 @@ if __name__ == "__main__":
     board = Board.parse_instance(sys.argv[1])
     problem = Numbrix(board)
     result = depth_first_tree_search(problem)
-    #result = astar_search(problem, problem.h)
+    # result = astar_search(problem, problem.h)
     result.state.board.print_board()
