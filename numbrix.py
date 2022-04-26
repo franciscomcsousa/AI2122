@@ -12,7 +12,8 @@ import sys
 import pickle
 import random
 
-from search import Problem, Node, depth_first_tree_search, astar_search
+from search import Problem, Node, depth_first_tree_search, astar_search, greedy_search, hill_climbing, \
+    simulated_annealing, and_or_graph_search
 import re
 
 
@@ -273,12 +274,13 @@ class Numbrix(Problem):
         # print("ACTION CYCLE")
         board = state.board
         actions = []
-        edgeMin, edgeMax = self.get_minimum_sequence_edges(state)
-        minimum = board.get_minimum_value()
-        maximum = board.get_maximum_value()
 
         if not board.is_possible():
             return actions
+
+        edgeMin, edgeMax = self.get_minimum_sequence_edges(state)
+        minimum = board.get_minimum_value()
+        maximum = board.get_maximum_value()
 
         # middle is finished, but neither of the extremes are
         if maximum != board.size ** 2 and edgeMax is None and minimum != 1 and edgeMin is None:
@@ -342,14 +344,23 @@ class Numbrix(Problem):
 
         emptySpaceNumber = []
         for sequence in sequenceList:
+            emptySpaceNumber += [0]
             for action in sequence:
-                emptySpaceNumber += [(len(board.get_empty_neighbors(action[0], action[1])))]
+                emptySpaceNumber[len(emptySpaceNumber) - 1] += 4 - len(board.get_empty_neighbors(action[0], action[1]))
+
+        # print("Before")
+        # print(emptySpaceNumber)
+        # print(sequenceList)
 
         result_list = [i for _, i in sorted(zip(emptySpaceNumber, sequenceList))]
 
-        #print("SEQUENCE LIST: " + str(sequenceList))
+        # print("After")
+        # print(emptySpaceNumber)
+        # print(sequenceList)
 
         return result_list
+
+        #return sequenceList
 
     def expand_extremes_tree_node(self, state: NumbrixState, node: TreeNode, extreme: str, tree: dict):
 
@@ -415,14 +426,23 @@ class Numbrix(Problem):
 
         emptySpaceNumber = []
         for sequence in sequenceList:
+            emptySpaceNumber += [0]
             for action in sequence:
-                emptySpaceNumber += [(len(board.get_empty_neighbors(action[0], action[1])))]
+                emptySpaceNumber[len(emptySpaceNumber) - 1] += 4 - len(board.get_empty_neighbors(action[0], action[1]))
+
+        # print("Before")
+        # print(emptySpaceNumber)
+        # print(sequenceList)
 
         result_list = [i for _, i in sorted(zip(emptySpaceNumber, sequenceList))]
 
-        # print("SEQUENCE LIST: " + str(sequenceList))
+        # print("After")
+        # print(emptySpaceNumber)
+        # print(sequenceList)
 
         return result_list
+
+        #return sequenceList
 
     def get_path_to_root(self, node: TreeNode, root: TreeNode):
         sequence = []
@@ -502,15 +522,17 @@ class Numbrix(Problem):
                 continue
         return True
 
+    def value(self, state: NumbrixState):
+        return (state.board.size ** 2) - len(state.board.get_empty_positions())
+
     def h(self, node: Node):
         """ Função heuristica utilizada para a procura A*. """
         board = node.state.board
         counter = 0
 
-        for i in range(board.size):
-            for j in range(board.size):
-                if board.board[i][j] == 0:
-                    counter += len(board.get_empty_neighbors(i, j))
+        empty = board.get_empty_positions()
+        for pos in empty:
+            counter += 4 - len(board.get_empty_neighbors(pos[0], pos[1]))
 
         return counter
 
@@ -526,5 +548,5 @@ if __name__ == "__main__":
     board = Board.parse_instance(sys.argv[1])
     problem = Numbrix(board)
     result = depth_first_tree_search(problem)
-    # result = astar_search(problem, problem.h)
+    #result = astar_search(problem, problem.h)
     result.state.board.print_board()
