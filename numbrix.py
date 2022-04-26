@@ -292,7 +292,7 @@ class Numbrix(Problem):
         elif minimum == 1 and edgeMin is None:
             actions = self.get_extremes_sequence(state, "maximum")
         else:
-            if True:
+            if edgeMax - edgeMin > 2 :
                 allSequences = []
                 for i in self.get_all_sequence_edges(state):
                     edgeMin = i[0]
@@ -553,17 +553,18 @@ if __name__ == "__main__":
     # Imprimir para o standard output no formato indicado.
 
     # Sem Instrumented
-    # board = Board.parse_instance(sys.argv[1])
-    # problem = Numbrix(board)
-    # result = depth_first_tree_search(problem)
-    # result.state.board.print_board()
-
-    # Com Instrumented
     board = Board.parse_instance(sys.argv[1])
     problem = Numbrix(board)
-    instrumented = InstrumentedProblem(problem)
-    result = depth_first_tree_search(instrumented)
+    result = depth_first_tree_search(problem)
+    # result = astar_search(problem, problem.h)
     result.state.board.print_board()
-    print(f'Número de nós gerados: {instrumented.states}')
-    print(f'Número de nós expandidos: {instrumented.succs}')
-    print(f'Número de nós exploraros: {instrumented.goal_tests}')
+
+    # Com Instrumented
+    # board = Board.parse_instance(sys.argv[1])
+    # problem = Numbrix(board)
+    # instrumented = InstrumentedProblem(problem)
+    # result = depth_first_tree_search(instrumented)
+    # result.state.board.print_board()
+    # print(f'Número de nós gerados: {instrumented.states}')
+    # print(f'Número de nós expandidos: {instrumented.succs}')
+    # print(f'Número de nós exploraros: {instrumented.goal_tests}')
