@@ -13,7 +13,7 @@ import pickle
 import random
 
 from search import Problem, Node, depth_first_tree_search, astar_search, greedy_search, hill_climbing, \
-    simulated_annealing, and_or_graph_search
+    simulated_annealing, and_or_graph_search, InstrumentedProblem
 import re
 
 
@@ -271,7 +271,6 @@ class Numbrix(Problem):
     def actions(self, state: NumbrixState):
         """ Retorna uma lista de ações que podem ser executadas a
         partir do estado passado como argumento. """
-        # print("ACTION CYCLE")
         board = state.board
         actions = []
 
@@ -285,15 +284,25 @@ class Numbrix(Problem):
         # middle is finished, but neither of the extremes are
         if maximum != board.size ** 2 and edgeMax is None and minimum != 1 and edgeMin is None:
             if board.size ** 2 - maximum >= minimum - 1:
-                return self.get_extremes_sequence(state, "maximum")
+                actions = self.get_extremes_sequence(state, "maximum")
             else:
-                return self.get_extremes_sequence(state, "minimum")
+                actions = self.get_extremes_sequence(state, "minimum")
         elif maximum == board.size ** 2 and edgeMax is None:
-            return self.get_extremes_sequence(state, "minimum")
+            actions = self.get_extremes_sequence(state, "minimum")
         elif minimum == 1 and edgeMin is None:
-            return self.get_extremes_sequence(state, "maximum")
+            actions = self.get_extremes_sequence(state, "maximum")
         else:
-            return self.get_sequences(state, edgeMin, edgeMax)
+            if True:
+                allSequences = []
+                for i in self.get_all_sequence_edges(state):
+                    edgeMin = i[0]
+                    edgeMax = i[1]
+                    allSequences += [self.get_sequences(state, edgeMin, edgeMax), ]
+                actions = min(allSequences, key=len)
+            else:
+                actions = self.get_sequences(state, edgeMin, edgeMax)
+
+        return actions
 
     def get_minimum_sequence_edges(self, state: NumbrixState):
         board = state.board
@@ -313,6 +322,19 @@ class Numbrix(Problem):
                 minSequenceValue = board.next_value(i) - i
 
         return edgeMin, edgeMax
+
+    def get_all_sequence_edges(self, state: NumbrixState):
+        board = state.board
+        allEdges = []
+
+        for i in range(board.get_minimum_value(), board.get_maximum_value()):
+            if board.positions[i] == []:
+                continue
+
+            if board.positions[min(i + 1, board.get_maximum_value())] == []:
+                allEdges += [[i, board.next_value(i)],]
+
+        return allEdges
 
     def get_extremes_sequence(self, state: NumbrixState, extreme: str):
         board = state.board
@@ -342,25 +364,17 @@ class Numbrix(Problem):
         for node in tree[str(edgeMax)]:
             sequenceList += [self.get_extremes_path_to_root(node, root), ]
 
-        emptySpaceNumber = []
-        for sequence in sequenceList:
-            emptySpaceNumber += [0]
-            for action in sequence:
-                emptySpaceNumber[len(emptySpaceNumber) - 1] += 4 - len(board.get_empty_neighbors(action[0], action[1]))
+        # emptySpaceNumber = []
+        # for sequence in sequenceList:
+        #     emptySpaceNumber += [0]
+        #     for action in sequence:
+        #         emptySpaceNumber[len(emptySpaceNumber) - 1] += 4 - len(board.get_empty_neighbors(action[0], action[1]))
+        #
+        # result_list = [i for _, i in sorted(zip(emptySpaceNumber, sequenceList))]
+        #
+        # return result_list
 
-        # print("Before")
-        # print(emptySpaceNumber)
-        # print(sequenceList)
-
-        result_list = [i for _, i in sorted(zip(emptySpaceNumber, sequenceList))]
-
-        # print("After")
-        # print(emptySpaceNumber)
-        # print(sequenceList)
-
-        return result_list
-
-        #return sequenceList
+        return sequenceList
 
     def expand_extremes_tree_node(self, state: NumbrixState, node: TreeNode, extreme: str, tree: dict):
 
@@ -424,25 +438,17 @@ class Numbrix(Problem):
         for node in tree[str(edgeMax)]:
             sequenceList += [self.get_path_to_root(node, root), ]
 
-        emptySpaceNumber = []
-        for sequence in sequenceList:
-            emptySpaceNumber += [0]
-            for action in sequence:
-                emptySpaceNumber[len(emptySpaceNumber) - 1] += 4 - len(board.get_empty_neighbors(action[0], action[1]))
+        # emptySpaceNumber = []
+        # for sequence in sequenceList:
+        #     emptySpaceNumber += [0]
+        #     for action in sequence:
+        #         emptySpaceNumber[len(emptySpaceNumber) - 1] += 4 - len(board.get_empty_neighbors(action[0], action[1]))
+        #
+        # result_list = [i for _, i in sorted(zip(emptySpaceNumber, sequenceList))]
+        #
+        # return result_list
 
-        # print("Before")
-        # print(emptySpaceNumber)
-        # print(sequenceList)
-
-        result_list = [i for _, i in sorted(zip(emptySpaceNumber, sequenceList))]
-
-        # print("After")
-        # print(emptySpaceNumber)
-        # print(sequenceList)
-
-        return result_list
-
-        #return sequenceList
+        return sequenceList
 
     def get_path_to_root(self, node: TreeNode, root: TreeNode):
         sequence = []
@@ -545,8 +551,19 @@ if __name__ == "__main__":
     # Usar uma técnica de procura para resolver a instância,
     # Retirar a solução a partir do nó resultante,
     # Imprimir para o standard output no formato indicado.
+
+    # Sem Instrumented
+    # board = Board.parse_instance(sys.argv[1])
+    # problem = Numbrix(board)
+    # result = depth_first_tree_search(problem)
+    # result.state.board.print_board()
+
+    # Com Instrumented
     board = Board.parse_instance(sys.argv[1])
     problem = Numbrix(board)
-    result = depth_first_tree_search(problem)
-    #result = astar_search(problem, problem.h)
+    instrumented = InstrumentedProblem(problem)
+    result = depth_first_tree_search(instrumented)
     result.state.board.print_board()
+    print(f'Número de nós gerados: {instrumented.states}')
+    print(f'Número de nós expandidos: {instrumented.succs}')
+    print(f'Número de nós exploraros: {instrumented.goal_tests}')
