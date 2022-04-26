@@ -28,9 +28,6 @@ class NumbrixState:
     def __lt__(self, other):
         return self.id < other.id
 
-    # TODO: outros metodos da classe
-
-
 class Board:
     """ Representação interna de um tabuleiro de Numbrix. """
 
@@ -292,12 +289,13 @@ class Numbrix(Problem):
         elif minimum == 1 and edgeMin is None:
             actions = self.get_extremes_sequence(state, "maximum")
         else:
-            if edgeMax - edgeMin > 2 :
+            if edgeMax - edgeMin > 2:
                 allSequences = []
                 for i in self.get_all_sequence_edges(state):
-                    edgeMin = i[0]
-                    edgeMax = i[1]
-                    allSequences += [self.get_sequences(state, edgeMin, edgeMax), ]
+                    newEdgeMin = i[0]
+                    newEdgeMax = i[1]
+                    if newEdgeMax - newEdgeMin < edgeMax - edgeMin + 5:
+                        allSequences += [self.get_sequences(state, newEdgeMin, newEdgeMax), ]
                 actions = min(allSequences, key=len)
             else:
                 actions = self.get_sequences(state, edgeMin, edgeMax)
@@ -314,7 +312,6 @@ class Numbrix(Problem):
             if board.positions[i] == []:
                 continue
 
-            # TODO - If minSequenceValue == 1 the function can return
             if board.next_value(i) - i < minSequenceValue and board.positions[
                 min(i + 1, board.get_maximum_value())] == []:
                 edgeMin = i
@@ -358,28 +355,16 @@ class Numbrix(Problem):
         self.expand_extremes_tree_node(state, root, extreme, tree)
 
         if str(edgeMax) not in tree.keys():
-            # print("SEQUENCE LIST: " + str(sequenceList))
             return sequenceList
 
         for node in tree[str(edgeMax)]:
             sequenceList += [self.get_extremes_path_to_root(node, root), ]
-
-        # emptySpaceNumber = []
-        # for sequence in sequenceList:
-        #     emptySpaceNumber += [0]
-        #     for action in sequence:
-        #         emptySpaceNumber[len(emptySpaceNumber) - 1] += 4 - len(board.get_empty_neighbors(action[0], action[1]))
-        #
-        # result_list = [i for _, i in sorted(zip(emptySpaceNumber, sequenceList))]
-        #
-        # return result_list
 
         return sequenceList
 
     def expand_extremes_tree_node(self, state: NumbrixState, node: TreeNode, extreme: str, tree: dict):
 
         deep_copy_state = pickle.loads(pickle.dumps(state, -1))
-        # deep_copy_state = deepcopy(state)
         board = deep_copy_state.board
 
         if extreme == "maximum":
@@ -432,21 +417,10 @@ class Numbrix(Problem):
         self.expand_tree_node(state, root, edgeMax, tree)
 
         if str(edgeMax) not in tree.keys():
-            # print("SEQUENCE LIST: " + str(sequenceList))
             return sequenceList
 
         for node in tree[str(edgeMax)]:
             sequenceList += [self.get_path_to_root(node, root), ]
-
-        # emptySpaceNumber = []
-        # for sequence in sequenceList:
-        #     emptySpaceNumber += [0]
-        #     for action in sequence:
-        #         emptySpaceNumber[len(emptySpaceNumber) - 1] += 4 - len(board.get_empty_neighbors(action[0], action[1]))
-        #
-        # result_list = [i for _, i in sorted(zip(emptySpaceNumber, sequenceList))]
-        #
-        # return result_list
 
         return sequenceList
 
@@ -460,7 +434,6 @@ class Numbrix(Problem):
     #
     def expand_tree_node(self, state: NumbrixState, node: TreeNode, objective: int, tree: dict):
 
-        # deep_copy_state = deepcopy(state)
         deep_copy_state = pickle.loads(pickle.dumps(state, -1))
         board = deep_copy_state.board
 
@@ -498,8 +471,7 @@ class Numbrix(Problem):
         das presentes na lista obtida pela execução de
         self.actions(state). """
         deep_copy_state = pickle.loads(pickle.dumps(state, -1))
-        # deep_copy_state = deepcopy(state)
-        #
+
         for placement in action:
             deep_copy_state.board.set_number(placement[0], placement[1], placement[2])
             deep_copy_state.board.positions[placement[2]] = [placement[0], placement[1]]
@@ -511,19 +483,14 @@ class Numbrix(Problem):
         um estado objetivo. Deve verificar se todas as posições do tabuleiro
         estão preenchidas com uma sequência de números adjacentes. """
         board = state.board
-        # TODO - Alterar one liner
         for i in range(board.size):
             for j in range(board.size):
                 if board.get_number(i, j) == 0:
-                    #board.print_board()
-                    #print()
                     return False
                 neighbors = board.get_neighbors(i, j)
                 pred_succ = board.get_pred_succ(board.get_number(i, j))
                 for num in range(len(pred_succ)):
                     if pred_succ[num] not in neighbors:
-                        #board.print_board()
-                        #print()
                         return False
                 continue
         return True
@@ -542,11 +509,7 @@ class Numbrix(Problem):
 
         return counter
 
-    # TODO: outros metodos da classe coco
-
-
 if __name__ == "__main__":
-    # TODO:
     # Ler o ficheiro de input de sys.argv[1],
     # Usar uma técnica de procura para resolver a instância,
     # Retirar a solução a partir do nó resultante,
